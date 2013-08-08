@@ -37,6 +37,7 @@ class RedshiftOutput < BufferedOutput
   config_param :redshift_schemaname, :string, :default => nil
   config_param :redshift_copy_base_options, :string , :default => "FILLRECORD ACCEPTANYDATE TRUNCATECOLUMNS"
   config_param :redshift_copy_options, :string , :default => nil
+  config_param :force_retry_flg_path, :string, :default => nil
   # file format
   config_param :file_type, :string, :default => nil  # json, tsv, csv, msgpack
   config_param :delimiter, :string, :default => nil
@@ -83,6 +84,10 @@ class RedshiftOutput < BufferedOutput
   end
 
   def write(chunk)
+    if @force_retry_flg_path && File.exist?(@force_retry_flg_path)
+      raise "Forced to retry mode by #{@force_retry_flg_path}"
+    end
+
     $log.debug format_log("start creating gz.")
 
     # create a gz file

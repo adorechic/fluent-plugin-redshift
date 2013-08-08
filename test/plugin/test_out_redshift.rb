@@ -523,4 +523,23 @@ class RedshiftOutputTest < Test::Unit::TestCase
     emit_json(d_json)
     assert_equal true, d_json.run
   end
+
+  def test_write_with_json_with_force_retry_mode
+    setup_mocks(%[val_a\tval_b\t\t\t\t\t\t\n\t\tval_c\tval_d\t\t\t\t\nval_a\tval_b\t\t\t\t\t\t\n\t\tval_c\tval_d\t\t\t\t\n])
+
+    file = Tempfile.new('fluentd-redshift-plugin-test')
+    d_json = create_driver(%[
+      #{CONFIG_JSON}
+      force_retry_flg_path #{file.path}
+    ])
+    emit_json(d_json)
+    assert_raise(RuntimeError, "Forced to retry mode by #{file.path}") {
+      d_json.run
+    }
+
+    file.delete
+
+    emit_json(d_json)
+    assert_equal true, d_json.run
+  end
 end

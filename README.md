@@ -39,6 +39,7 @@ Format:
         buffer_path /var/log/fluent/redshift
         flush_interval 15m
         buffer_chunk_limit 1g
+        force_retry_flg_path /your/config/maintenance_flg
     </match>
 
 Example (watch and upload json formatted apache log):
@@ -126,6 +127,8 @@ Example (watch and upload json formatted apache log):
 + `buffer_chunk_limit` : limit buffer size to chunk.
 
 + `utc` : utc time zone. This parameter affects `timestamp_key_format`.
+
++ `force_retry_flg_path` : path of force retry flag. plugin does not try to logging and retry after it while given file exists.
 
 ## Logging examples
 ```ruby
