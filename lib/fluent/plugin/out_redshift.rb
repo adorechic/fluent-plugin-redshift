@@ -38,6 +38,8 @@ class RedshiftOutput < BufferedOutput
   config_param :redshift_copy_base_options, :string , :default => "FILLRECORD ACCEPTANYDATE TRUNCATECOLUMNS"
   config_param :redshift_copy_options, :string , :default => nil
   config_param :force_retry_flg_path, :string, :default => nil
+  config_param :redshift_column_list, :string, :default => nil
+  config_param :redshift_offline_flg_path, :string, :default => nil
   # file format
   config_param :file_type, :string, :default => nil  # json, tsv, csv, msgpack
   config_param :delimiter, :string, :default => nil
@@ -59,6 +61,7 @@ class RedshiftOutput < BufferedOutput
     @delimiter = determine_delimiter(@file_type) if @delimiter.nil? or @delimiter.empty?
     $log.debug format_log("redshift file_type:#{@file_type} delimiter:'#{@delimiter}'")
     @copy_sql_template = "copy #{table_name_with_schema} from '%s' CREDENTIALS 'aws_access_key_id=#{@aws_key_id};aws_secret_access_key=%s' delimiter '#{@delimiter}' GZIP ESCAPE #{@redshift_copy_base_options} #{@redshift_copy_options};"
+    @columns = @redshift_column_list ? @redshift_column_list.split(/\s*,\s*/) : nil
   end
 
   def start
@@ -117,6 +120,10 @@ class RedshiftOutput < BufferedOutput
 
     # copy gz on s3 to redshift
     s3_uri = "s3://#{@s3_bucket}/#{s3path}"
+    if offline_mode?
+      $log.debug format_log("redshift offline mode; not loaded: #{s3_uri}")
+      return nil
+    end
     sql = @copy_sql_template % [s3_uri, @aws_sec_key]
     $log.debug  format_log("start copying. s3_uri=#{s3_uri}")
     conn = nil
@@ -146,6 +153,10 @@ class RedshiftOutput < BufferedOutput
 
   def msgpack?
     @file_type == 'msgpack'
+  end
+
+  def offline_mode?
+    @redshift_offline_flg_path and File.file?(@redshift_offline_flg_path)
   end
 
   def create_gz_file_from_flat_data(dst_file, chunk)
@@ -220,6 +231,7 @@ class RedshiftOutput < BufferedOutput
   end
 
   def fetch_columns_sql_with_schema
+    return @columns if offline_mode? and @columns
     @fetch_columns_sql ||= if @redshift_schemaname
                              "select column_name from INFORMATION_SCHEMA.COLUMNS where table_schema = '#{@redshift_schemaname}' and table_name = '#{@redshift_tablename}' order by ordinal_position;"
                            else
